@@ -1,9 +1,35 @@
-document.addEventListener('DOMContentLoaded', () => {
+(function() {
+    // 1. Inyectar CSS
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .acc-btn-trigger { position: fixed; bottom: 25px; right: 25px; z-index: 999999; background: #e91e63; border: none; cursor: pointer; width: 60px; height: 60px; border-radius: 50%; color: white; }
+        .acc-panel { position: fixed; bottom: 90px; right: 25px; width: 300px; background: #fff; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); padding: 20px; z-index: 999998; display: none; font-family: sans-serif; }
+        .acc-active { background: #e91e63 !important; color: white !important; }
+        .acc-reading-guide { position: fixed; top: 0; left: 0; width: 100%; height: 2px; background: red; z-index: 999997; pointer-events: none; }
+    `;
+    document.head.appendChild(style);
+
+    // 2. Inyectar HTML del Panel
+    const container = document.createElement('div');
+    container.innerHTML = `
+        <button id="acc-toggle" class="acc-btn-trigger">Acc</button>
+        <div id="acc-panel" class="acc-panel">
+            <h3>Accesibilidad DIF</h3>
+            <button data-action="text-small">A-</button>
+            <button data-action="text-normal">Normal</button>
+            <button data-action="text-large">A+</button>
+            <hr>
+            <button data-action="toggle-contrast">Contraste</button>
+            <button data-action="read-mode">Modo Lectura</button>
+            <button data-action="reset">Reset</button>
+        </div>
+    `;
+    document.body.appendChild(container);
+
+    // 3. Lógica (Tú script corregido)
     const trigger = document.getElementById('acc-toggle');
     const panel = document.getElementById('acc-panel');
-    if (!panel) return;
 
-    // --- MANEJADOR DE VOZ GLOBAL ---
     const speakHandler = (e) => {
         const text = e.target.innerText || e.target.textContent;
         if (text && text.trim().length > 0) {
@@ -14,93 +40,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- TOGGLE PANEL ---
-    trigger?.addEventListener('click', (e) => {
-        e.stopPropagation();
+    trigger.addEventListener('click', () => {
         panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
     });
 
-    // --- DELEGACIÓN DE EVENTOS (Aquí reside la estabilidad) ---
     panel.addEventListener('click', (e) => {
         const btn = e.target.closest('button');
-        if (!btn || btn.classList.contains('acc-close')) return;
+        if (!btn || !btn.dataset.action) return;
         
         const action = btn.dataset.action;
-        if (!action) return;
+        if (action === 'reset') { location.reload(); return; }
 
-        // Reset Total
-        if (action === 'reset') {
-            window.speechSynthesis.cancel();
-            document.removeEventListener('click', speakHandler, true);
-            localStorage.clear();
-            location.reload();
-            return;
-        }
-
-        // Toggle visual
-        if (action.startsWith('text-')) {
-            panel.querySelectorAll('[data-action^="text-"]').forEach(b => b.classList.remove('acc-active'));
-        }
         btn.classList.toggle('acc-active');
         const isActive = btn.classList.contains('acc-active');
-
-        // Ejecutar acción
-        try {
-            applyAction(action, isActive);
-            localStorage.setItem(action, isActive);
-        } catch (err) {
-            console.error("Error en acción " + action, err);
-        }
-
-        
+        applyAction(action, isActive);
     });
 
     function applyAction(action, isActive) {
-        // Limpiamos estilos de voz si cambiamos de acción
-        if(action !== 'read-mode') {
-            document.removeEventListener('click', speakHandler, true);
-            document.body.style.cursor = 'default';
-        }
-
         switch(action) {
             case 'text-small': document.body.style.fontSize = '14px'; break;
             case 'text-normal': document.body.style.fontSize = '16px'; break;
             case 'text-large': document.body.style.fontSize = '20px'; break;
-            case 'toggle-contrast': document.body.classList.toggle('acc-toggle-contrast', isActive); break;
-            case 'toggle-grayscale': document.body.classList.toggle('acc-toggle-grayscale', isActive); break;
-            case 'toggle-cursor': document.body.classList.toggle('acc-toggle-cursor', isActive); break;
-            case 'toggle-dyslexia': document.body.classList.toggle('acc-toggle-dyslexia', isActive); break;
-            case 'toggle-images': document.querySelectorAll('img').forEach(img => img.style.display = isActive ? 'none' : ''); break;
-            case 'toggle-links': document.querySelectorAll('a').forEach(a => a.style.outline = isActive ? '2px solid #e91e63' : ''); break;
-            case 'toggle-animations':
-                const styleId = 'acc-no-anim';
-                if(isActive) {
-                    const style = document.createElement('style');
-                    style.id = styleId;
-                    style.innerHTML = '* { animation: none !important; transition: none !important; }';
-                    document.head.appendChild(style);
-                } else { document.getElementById(styleId)?.remove(); }
-                break;
-            case 'toggle-reading-guide':
-                let guide = document.getElementById('acc-guide');
-                if(isActive) {
-                    guide = document.createElement('div');
-                    guide.id = 'acc-guide';
-                    guide.className = 'acc-reading-guide';
-                    document.body.appendChild(guide);
-                    document.addEventListener('mousemove', (e) => { if(guide) guide.style.top = (e.clientY - 10) + 'px'; });
-                } else { guide?.remove(); }
-                break;
+            case 'toggle-contrast': document.body.style.filter = isActive ? 'invert(1)' : 'none'; break;
             case 'read-mode':
                 if (isActive) {
                     document.body.style.cursor = 'crosshair';
                     document.addEventListener('click', speakHandler, true);
                 } else {
-                    window.speechSynthesis.cancel();
                     document.body.style.cursor = 'default';
                     document.removeEventListener('click', speakHandler, true);
                 }
                 break;
         }
     }
-});
+})();
